@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistem Absensi Kelas 11 TKJ 1</title>
+
+  <!-- Tailwind CSS Play CDN: cocok untuk development/static single-file seperti ini. -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root{
+      --royal:#2563eb;
+      --royal-dark:#1d4ed8;
+      --steel:#64748b;
+      --soft:#f8fafc;
+      --line:#e2e8f0;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--soft);
+      color: #0f172a;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+    }
+
+    ::selection {
+      background: rgba(37, 99, 235, .18);
+    }
+
+    .app-shell { min-height: 100vh; }
+    .sidebar-shadow { box-shadow: 10px 0 30px rgba(15, 23, 42, .05); }
+
+    .card {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 1rem;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, .04);
+    }
+
+    .nav-btn {
+      transition: .18s ease;
+    }
+    .nav-btn:hover {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+    .nav-btn.active {
+      background: #2563eb;
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(37, 99, 235, .2);
+    }
+
+    .status-btn {
+      transition: .15s ease;
+      user-select: none;
+    }
+    .status-btn.active {
+      color: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 5px 14px rgba(15, 23, 42, .12);
+    }
+    .status-btn[data-status="Hadir"].active { background: #16a34a; }
+    .status-btn[data-status="Sakit"].active { background: #f59e0b; }
+    .status-btn[data-status="Izin"].active { background: #2563eb; }
+    .status-btn[data-status="Alpa"].active { background: #dc2626; }
+
+    .fade-in {
+      animation: fadeIn .18s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .bar-fill {
+      transition: width .35s ease;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th {
+      white-space: nowrap;
+    }
+
+    .mobile-overlay {
+      background: rgba(15, 23, 42, .45);
+      backdrop-filter: blur(2px);
+    }
+
+    @media print {
+      body { background: #fff !important; }
+      #sidebar,
+      #mobile-menu-btn,
+      #mobile-overlay,
+      .no-print,
+      #toast {
+        display: none !important;
+      }
+      #main {
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .print-card {
+        box-shadow: none !important;
+        border: 1px solid #d1d5db !important;
+      }
+      .page-view {
+        display: none !important;
+      }
+      #view-rekap {
+        display: block !important;
+      }
+      #view-rekap .no-print-in-view {
+        display: none !important;
+      }
+      .print-title {
+        display: block !important;
+      }
+    }
+
+    .print-title {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+<div class="app-shell">
+
+  <!-- Mobile overlay -->
+  <div id="mobile-overlay" class="hidden fixed inset-0 z-40 mobile-overlay"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar"
+         class="fixed inset-y-0 left-0 z-50 w-72 -translate-x-full lg:translate-x-0 transition-transform duration-200 bg-white border-r border-slate-200 sidebar-shadow flex flex-col">
+    <div class="p-5 border-b border-slate-200">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-blue-600 text-white grid place-items-center font-bold text-lg shadow-lg shadow-blue-600/20">
+          TKJ
+        </div>
+        <div>
+          <h1 class="font-bold text-slate-900 leading-tight">11 TKJ 1</h1>
+          <p class="text-xs text-slate-500">Sistem Absensi Kelas</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="px-4 py-4">
+      <p class="px-3 text-[11px] font-semibold tracking-widest uppercase text-slate-400 mb-2">Navigasi</p>
+
+      <nav class="space-y-1" id="nav-menu">
+        <button data-view="dashboard" class="nav-btn active w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-3 text-sm font-medium">
+          <span>▦</span><span>Dashboard Admin</span>
+        </button>
+        <button data-view="input-absensi" class="nav-btn w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-3 text-sm font-medium text-slate-700">
+          <span>✓</span><span>Input Absensi Harian</span>
+        </button>
+        <button data-view="siswa" class="nav-btn w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-3 text-sm font-medium text-slate-700">
+          <span>♙</span><span>Data Siswa</span>
+        </button>
+        <button data-view="rekap" class="nav-btn w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-3 text-sm font-medium text-slate-700">
+          <span>▤</span><span>Rekap Absensi</span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="mt-auto p-4">
+      <div class="rounded-2xl bg-slate-900 text-white p-4">
+        <p class="text-xs text-slate-400">Status koneksi</p>
+        <div class="flex items-center gap-2 mt-2">
+          <span id="connection-dot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+          <span id="connection-text" class="text-sm font-semibold">Belum dicek</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+          Data tersimpan langsung di Supabase.
+        </p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main id="main" class="lg:ml-72 min-h-screen">
+    <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200">
+      <div class="px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <button id="mobile-menu-btn"
+                  class="lg:hidden w-10 h-10 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50">
+            ☰
+          </button>
+          <div>
+            <p id="page-breadcrumb" class="text-xs font-medium text-blue-600">ADMIN • DASHBOARD</p>
+            <h2 id="page-title" class="text-xl sm:text-2xl font-bold text-slate-900">Dashboard Admin</h2>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <div class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
+            <span class="text-xs text-slate-400">Hari ini</span>
+            <span id="today-label" class="text-sm font-semibold text-slate-700">-</span>
+          </div>
+          <button id="refresh-all-btn"
+                  class="no-print px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700">
+            ↻ Refresh
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="p-4 sm:p-6 lg:p-8">
+
+      <!-- DASHBOARD -->
+      <section id="view-dashboard" class="page-view fade-in space-y-6">
+
+        <div class="grid sm:grid-cols-2 xl:grid-cols-5 gap-4">
+          <div class="card p-5 xl:col-span-1">
+            <p class="text-sm text-slate-500">Total Siswa</p>
+            <div class="mt-2 flex items-end justify-between">
+              <p id="stat-total-siswa" class="text-3xl font-bold">0</p>
+              <span class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 grid place-items-center">♙</span>
+            </div>
+          </div>
+
+          <div class="card p-5 xl:col-span-1">
+            <p class="text-sm text-slate-500">Kehadiran Bulan Ini</p>
+            <div class="mt-2 flex items-end justify-between">
+              <p id="stat-kehadiran" class="text-3xl font-bold">0%</p>
+              <span class="w-10 h-10 rounded-xl bg-green-50 text-green-600 grid place-items-center">✓</span>
+            </div>
+          </div>
+
+          <div class="card p-5">
+            <p class="text-sm text-slate-500">Sakit</p>
+            <div class="mt-2 flex items-end justify-between">
+              <p id="stat-sakit" class="text-3xl font-bold">0</p>
+              <span class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 grid place-items-center">S</span>
+            </div>
+          </div>
+
+          <div class="card p-5">
+            <p class="text-sm text-slate-500">Izin</p>
+            <div class="mt-2 flex items-end justify-between">
+              <p id="stat-izin" class="text-3xl font-bold">0</p>
+              <span class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 grid place-items-center">I</span>
+            </div>
+          </div>
+
+          <div class="card p-5">
+            <p class="text-sm text-slate-500">Alpa</p>
+            <div class="mt-2 flex items-end justify-between">
+              <p id="stat-alpa" class="text-3xl font-bold">0</p>
+              <span class="w-10 h-10 rounded-xl bg-red-50 text-red-600 grid place-items-center">A</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid xl:grid-cols-3 gap-6">
+          <div class="card p-5 xl:col-span-2">
+            <div class="flex items-center justify-between gap-4 mb-5">
+              <div>
+                <h3 class="font-bold text-slate-900">Ringkasan 7 Hari</h3>
+                <p class="text-sm text-slate-500">Jumlah status Hadir per hari</p>
+              </div>
+              <div class="text-xs text-slate-500">Live dari database</div>
+            </div>
+            <div id="weekly-chart" class="space-y-4"></div>
+          </div>
+
+          <div class="card p-5">
+            <div class="flex items-center justify-between mb-5">
+              <div>
+                <h3 class="font-bold text-slate-900">Aktivitas Terakhir</h3>
+                <p class="text-sm text-slate-500">Input absensi terbaru</p>
+              </div>
+            </div>
+            <div id="recent-activity" class="space-y-3"></div>
+          </div>
+        </div>
+
+        <div class="card p-5">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+            <div>
+              <h3 class="font-bold text-slate-900">Manajemen Mata Pelajaran</h3>
+              <p class="text-sm text-slate-500">Tambah atau hapus daftar mata pelajaran.</p>
+            </div>
+            <form id="mapel-form" class="flex gap-2">
+              <input id="mapel-name"
+                     required
+                     maxlength="100"
+                     placeholder="Contoh: Administrasi Infrastruktur Jaringan"
+                     class="w-full sm:w-80 rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm" />
+              <button class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm">
+                + Tambah
+              </button>
+            </form>
+          </div>
+          <div id="mapel-list" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+        </div>
+      </section>
+
+      <!-- INPUT ABSENSI -->
+      <section id="view-input-absensi" class="page-view hidden fade-in space-y-6">
+        <div class="card p-5">
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Tanggal</label>
+              <input id="attendance-date" type="date"
+                     class="w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Mata Pelajaran</label>
+              <select id="attendance-mapel"
+                      class="w-full rounded-xl border border-slate-300 px-3 py-2.5 bg-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                <option value="">Pilih mata pelajaran</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card overflow-hidden">
+          <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h3 class="font-bold text-slate-900">Daftar Absensi</h3>
+              <p class="text-sm text-slate-500">Default setiap siswa = Hadir. Klik status untuk mengubah.</p>
+            </div>
+            <div id="attendance-loading" class="hidden text-sm text-slate-500">Memuat...</div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="min-w-[980px]">
+              <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 w-16">No</th>
+                  <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Nama Siswa</th>
+                  <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
+                  <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 min-w-[320px]">Keterangan</th>
+                </tr>
+              </thead>
+              <tbody id="attendance-body"></tbody>
+            </table>
+          </div>
+
+          <div class="p-5 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p id="attendance-summary" class="text-sm text-slate-500">0 siswa</p>
+            <button id="save-attendance-btn"
+                    class="no-print px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-600/15">
+              Simpan Absensi
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- DATA SISWA -->
+      <section id="view-siswa" class="page-view hidden fade-in space-y-6">
+        <div class="card p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h3 class="font-bold text-slate-900">Data Siswa Kelas 11 TKJ 1</h3>
+            <p class="text-sm text-slate-500">Tidak menggunakan NISN.</p>
+          </div>
+          <button id="add-siswa-btn"
+                  class="no-print px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+            + Tambah Siswa
+          </button>
+        </div>
+
+        <div class="card overflow-hidden">
+          <div class="table-wrap">
+            <table class="min-w-[760px]">
+              <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 w-16">No</th>
+                  <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Nama Lengkap</th>
+                  <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Jenis Kelamin</th>
+                  <th class="text-right px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="students-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- REKAP -->
+      <section id="view-rekap" class="page-view hidden fade-in space-y-6">
+        <div class="card p-5 no-print-in-view">
+          <div class="grid xl:grid-cols-4 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Mode Waktu</label>
+              <select id="report-mode"
+                      class="w-full rounded-xl border border-slate-300 px-3 py-2.5 bg-white">
+                <option value="month">Bulan</option>
+                <option value="date">Tanggal</option>
+              </select>
+            </div>
+
+            <div id="report-month-wrap">
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Bulan</label>
+              <input id="report-month" type="month"
+                     class="w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+            </div>
+
+            <div id="report-date-wrap" class="hidden">
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Tanggal</label>
+              <input id="report-date" type="date"
+                     class="w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Mata Pelajaran</label>
+              <select id="report-mapel"
+                      class="w-full rounded-xl border border-slate-300 px-3 py-2.5 bg-white">
+                <option value="">Semua Mata Pelajaran</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button id="load-report-btn"
+                    class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+              Tampilkan Rekap
+            </button>
+            <button id="export-csv-btn"
+                    class="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold">
+              Export CSV
+            </button>
+            <button id="print-btn"
+                    class="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold">
+              Cetak / PDF
+            </button>
+          </div>
+        </div>
+
+        <div class="card p-5 print-card">
+          <div class="print-title mb-5">
+            <h1 class="text-2xl font-bold">Rekap Absensi — Kelas 11 TKJ 1</h1>
+            <p id="print-period" class="text-sm text-slate-500 mt-1">-</p>
+          </div>
+
+          <div class="flex items-center justify-between gap-4 mb-5">
+            <div>
+              <h3 class="font-bold text-slate-900">Rekapitulasi Kehadiran per Siswa</h3>
+              <p id="report-caption" class="text-sm text-slate-500">Belum ada filter yang dijalankan.</p>
+            </div>
+            <div id="report-loading" class="hidden text-sm text-slate-500 no-print-in-view">Memuat...</div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="min-w-[980px]">
+              <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th class="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">No</th>
+                  <th class="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Nama Siswa</th>
+                  <th class="text-center px-4 py-3 text-xs font-bold uppercase tracking-wider text-green-700">Hadir</th>
+                  <th class="text-center px-4 py-3 text-xs font-bold uppercase tracking-wider text-amber-700">Sakit</th>
+                  <th class="text-center px-4 py-3 text-xs font-bold uppercase tracking-wider text-blue-700">Izin</th>
+                  <th class="text-center px-4 py-3 text-xs font-bold uppercase tracking-wider text-red-700">Alpa</th>
+                  <th class="text-center px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Total</th>
+                  <th class="text-center px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Kehadiran</th>
+                </tr>
+              </thead>
+              <tbody id="report-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- Student Modal -->
+<div id="student-modal" class="hidden fixed inset-0 z-[60] bg-slate-900/50 backdrop-blur-sm p-4 grid place-items-center">
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl">
+    <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+      <div>
+        <h3 id="student-modal-title" class="font-bold text-slate-900">Tambah Siswa</h3>
+        <p class="text-xs text-slate-500 mt-1">Data akan langsung disimpan ke Supabase.</p>
+      </div>
+      <button id="close-student-modal" class="w-9 h-9 rounded-xl hover:bg-slate-100 text-slate-500">✕</button>
+    </div>
+
+    <form id="student-form" class="p-5 space-y-4">
+      <input id="student-id" type="hidden" />
+
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">Nama Lengkap</label>
+        <input id="student-name"
+               required
+               maxlength="120"
+               class="w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+               placeholder="Contoh: Budi Santoso" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-2">Jenis Kelamin</label>
+        <select id="student-gender"
+                required
+                class="w-full rounded-xl border border-slate-300 px-3 py-2.5 bg-white">
+          <option value="">Pilih</option>
+          <option value="L">Laki-laki (L)</option>
+          <option value="P">Perempuan (P)</option>
+        </select>
+      </div>
+
+      <div class="pt-2 flex justify-end gap-2">
+        <button type="button" id="cancel-student-modal"
+                class="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 font-semibold">
+          Batal
+        </button>
+        <button type="submit"
+                class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+          Simpan
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"
+     class="hidden fixed bottom-5 right-5 z-[100] max-w-sm rounded-2xl bg-slate-900 text-white px-4 py-3 shadow-2xl">
+  <p id="toast-message" class="text-sm font-medium"></p>
+</div>
+
+<script>
+/* ============================================================
+   1. SUPABASE CONFIG
+   ============================================================ */
+const SUPABASE_URL = "ISI_SUPABASE_URL_ANDA";
+const SUPABASE_ANON_KEY = "ISI_SUPABASE_ANON_KEY_ANDA";
+
+let db = null;
+
+/* ============================================================
+   2. STATE
+   ============================================================ */
+const state = {
+  students: [],
+  subjects: [],
+  reportRows: [],
+  activeView: "dashboard",
+  attendanceRows: []
+};
+
+/* ============================================================
+   3. HELPERS
+   ============================================================ */
+const $ = (id) => document.getElementById(id);
+
+function isConfigured() {
+  return SUPABASE_URL.startsWith("https://")
+    && !SUPABASE_URL.includes("ISI_SUPABASE")
+    && SUPABASE_ANON_KEY
+    && !SUPABASE_ANON_KEY.includes("ISI_SUPABASE");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function todayISO() {
+  const d = new Date();
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function currentMonthISO() {
+  return todayISO().slice(0, 7);
+}
+
+function formatDateID(dateStr) {
+  if (!dateStr) return "-";
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).format(new Date(dateStr + "T00:00:00"));
+}
+
+function formatDateTimeID(dateTime) {
+  if (!dateTime) return "-";
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(dateTime));
+}
+
+function monthBounds(month) {
+  const [y, m] = month.split("-").map(Number);
+  const start = `${y}-${String(m).padStart(2, "0")}-01`;
+  const nextMonth = m === 12 ? 1 : m + 1;
+  const nextYear = m === 12 ? y + 1 : y;
+  const end = new Date(nextYear, nextMonth - 1, 0);
+  const endISO = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`;
+  return { start, end: endISO };
+}
+
+function toast(message, type = "info") {
+  $("toast-message").textContent = message;
+  const el = $("toast");
+  el.className = "fixed bottom-5 right-5 z-[100] max-w-sm rounded-2xl px-4 py-3 shadow-2xl text-white";
+  if (type === "error") el.classList.add("bg-red-600");
+  else if (type === "success") el.classList.add("bg-green-600");
+  else el.classList.add("bg-slate-900");
+
+  el.classList.remove("hidden");
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => el.classList.add("hidden"), 2800);
+}
+
+function setConnection(connected, text) {
+  $("connection-dot").className =
+    "w-2.5 h-2.5 rounded-full " + (connected ? "bg-green-400" : "bg-red-400");
+  $("connection-text").textContent = text;
+}
+
+function getStudentById(id) {
+  return state.students.find(s => s.id === id);
+}
+
+function getSubjectById(id) {
+  return state.subjects.find(s => s.id === id);
+}
+
+/* ============================================================
+   4. NAVIGATION
+   ============================================================ */
+const viewMeta = {
+  dashboard: {
+    title: "Dashboard Admin",
+    crumb: "ADMIN • DASHBOARD"
+  },
+  "input-absensi": {
+    title: "Input Absensi Harian",
+    crumb: "ABSENSI • INPUT HARIAN"
+  },
+  siswa: {
+    title: "Data Siswa",
+    crumb: "MASTER DATA • SISWA"
+  },
+  rekap: {
+    title: "Rekap Absensi",
+    crumb: "LAPORAN • REKAP ABSENSI"
+  }
+};
+
+function showView(viewName) {
+  state.activeView = viewName;
+
+  document.querySelectorAll(".page-view").forEach(section => {
+    section.classList.toggle("hidden", section.id !== "view-" + viewName);
+  });
+
+  document.querySelectorAll(".nav-btn").forEach(btn => {
+    const active = btn.dataset.view === viewName;
+    btn.classList.toggle("active", active);
+    if (!active) btn.classList.add("text-slate-700");
+    else btn.classList.remove("text-slate-700");
+  });
+
+  $("page-title").textContent = viewMeta[viewName].title;
+  $("page-breadcrumb").textContent = viewMeta[viewName].crumb;
+
+  closeMobileMenu();
+
+  if (viewName === "dashboard") loadDashboard();
+  if (viewName === "input-absensi") {
+    populateSubjectSelects();
+    if (!$("attendance-date").value) $("attendance-date").value = todayISO();
+    renderAttendanceRows();
+  }
+  if (viewName === "siswa") renderStudents();
+  if (viewName === "rekap") {
+    populateSubjectSelects();
+    loadReport();
+  }
+}
+
+function openMobileMenu() {
+  $("sidebar").classList.remove("-translate-x-full");
+  $("mobile-overlay").classList.remove("hidden");
+}
+
+function closeMobileMenu() {
+  $("sidebar").classList.add("-translate-x-full");
+  $("mobile-overlay").classList.add("hidden");
+}
+
+document.querySelectorAll(".nav-btn").forEach(btn => {
+  btn.addEventListener("click", () => showView(btn.dataset.view));
+});
+
+$("mobile-menu-btn").addEventListener("click", openMobileMenu);
+$("mobile-overlay").addEventListener("click", closeMobileMenu);
+
+/* ============================================================
+   5. DATA LOADING
+   ============================================================ */
+async function initSupabase() {
+  if (!isConfigured()) {
+    setConnection(false, "Belum dikonfigurasi");
+    toast("Isi SUPABASE_URL dan SUPABASE_ANON_KEY terlebih dahulu.", "error");
+    return false;
+  }
+
+  try {
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { error } = await db.from("siswa").select("id").limit(1);
+    if (error) throw error;
+    setConnection(true, "Supabase terhubung");
+    return true;
+  } catch (error) {
+    console.error(error);
+    setConnection(false, "Koneksi gagal");
+    toast("Koneksi Supabase gagal. Cek URL, anon key, RLS policy, dan Data API.", "error");
+    return false;
+  }
+}
+
+async function loadStudents() {
+  if (!db) return;
+  const { data, error } = await db
+    .from("siswa")
+    .select("id,nama,jenis_kelamin")
+    .order("nama", { ascending: true });
+
+  if (error) throw error;
+  state.students = data ?? [];
+}
+
+async function loadSubjects() {
+  if (!db) return;
+  const { data, error } = await db
+    .from("mata_pelajaran")
+    .select("id,nama_mapel")
+    .order("nama_mapel", { ascending: true });
+
+  if (error) throw error;
+  state.subjects = data ?? [];
+}
+
+async function loadBaseData() {
+  try {
+    await Promise.all([loadStudents(), loadSubjects()]);
+    renderStudents();
+    renderSubjects();
+    populateSubjectSelects();
+  } catch (error) {
+    console.error(error);
+    toast("Gagal mengambil data siswa/mapel dari Supabase.", "error");
+  }
+}
+
+/* ============================================================
+   6. DASHBOARD
+   ============================================================ */
+async function loadDashboard() {
+  if (!db) return;
+
+  try {
+    const month = currentMonthISO();
+    const { start, end } = monthBounds(month);
+
+    const { data: monthRows, error: monthError } = await db
+      .from("absensi")
+      .select("status,tanggal")
+      .gte("tanggal", start)
+      .lte("tanggal", end);
+
+    if (monthError) throw monthError;
+
+    const rows = monthRows ?? [];
+    const totalAttendance = rows.length;
+    const hadir = rows.filter(r => r.status === "Hadir").length;
+    const sakit = rows.filter(r => r.status === "Sakit").length;
+    const izin = rows.filter(r => r.status === "Izin").length;
+    const alpa = rows.filter(r => r.status === "Alpa").length;
+
+    $("stat-total-siswa").textContent = state.students.length;
+    $("stat-kehadiran").textContent =
+      totalAttendance ? Math.round((hadir / totalAttendance) * 100) + "%" : "0%";
+    $("stat-sakit").textContent = sakit;
+    $("stat-izin").textContent = izin;
+    $("stat-alpa").textContent = alpa;
+
+    await renderWeeklyChart();
+    await renderRecentActivity();
+    renderSubjects();
+  } catch (error) {
+    console.error(error);
+    toast("Dashboard gagal dimuat.", "error");
+  }
+}
+
+async function renderWeeklyChart() {
+  const start = new Date();
+  start.setHours(0,0,0,0);
+  start.setDate(start.getDate() - 6);
+
+  const startISO = (() => {
+    const local = new Date(start.getTime() - start.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0,10);
+  })();
+
+  try {
+    const { data, error } = await db
+      .from("absensi")
+      .select("tanggal,status")
+      .gte("tanggal", startISO)
+      .lte("tanggal", todayISO());
+
+    if (error) throw error;
+
+    const grouped = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const iso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,10);
+      const count = (data ?? []).filter(r => r.tanggal === iso && r.status === "Hadir").length;
+      grouped.push({ iso, label: new Intl.DateTimeFormat("id-ID", { weekday: "short", day: "2-digit" }).format(d), count });
+    }
+
+    const max = Math.max(1, ...grouped.map(x => x.count));
+
+    $("weekly-chart").innerHTML = grouped.map(item => `
+      <div class="grid grid-cols-[65px_1fr_42px] items-center gap-3">
+        <div class="text-xs font-semibold text-slate-500">${escapeHtml(item.label)}</div>
+        <div class="h-3 rounded-full bg-slate-100 overflow-hidden">
+          <div class="bar-fill h-full bg-blue-600 rounded-full" style="width:${(item.count / max) * 100}%"></div>
+        </div>
+        <div class="text-right text-xs font-bold text-slate-700">${item.count}</div>
+      </div>
+    `).join("");
+  } catch (error) {
+    console.error(error);
+    $("weekly-chart").innerHTML = `<p class="text-sm text-red-600">Gagal memuat grafik.</p>`;
+  }
+}
+
+async function renderRecentActivity() {
+  try {
+    const { data, error } = await db
+      .from("absensi")
+      .select(`
+        id,tanggal,status,keterangan,created_at,
+        siswa:siswa_id(nama),
+        mata_pelajaran:mapel_id(nama_mapel)
+      `)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (error) throw error;
+
+    const rows = data ?? [];
+    if (!rows.length) {
+      $("recent-activity").innerHTML =
+        `<p class="text-sm text-slate-400">Belum ada aktivitas absensi.</p>`;
+      return;
+    }
+
+    $("recent-activity").innerHTML = rows.map(row => `
+      <div class="flex items-start gap-3 pb-3 border-b border-slate-100 last:border-0 last:pb-0">
+        <div class="w-9 h-9 rounded-xl ${statusBadgeClass(row.status)} grid place-items-center font-bold text-xs">
+          ${statusInitial(row.status)}
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-semibold text-slate-800 truncate">${escapeHtml(row.siswa?.nama ?? "-")}</p>
+          <p class="text-xs text-slate-500 truncate">${escapeHtml(row.mata_pelajaran?.nama_mapel ?? "-")} • ${escapeHtml(row.status)}</p>
+          <p class="text-[11px] text-slate-400 mt-1">${escapeHtml(formatDateTimeID(row.created_at))}</p>
+        </div>
+      </div>
+    `).join("");
+  } catch (error) {
+    console.error(error);
+    $("recent-activity").innerHTML =
+      `<p class="text-sm text-red-600">Gagal memuat aktivitas.</p>`;
+  }
+}
+
+function statusBadgeClass(status) {
+  if (status === "Hadir") return "bg-green-50 text-green-600";
+  if (status === "Sakit") return "bg-amber-50 text-amber-600";
+  if (status === "Izin") return "bg-blue-50 text-blue-600";
+  return "bg-red-50 text-red-600";
+}
+
+function statusInitial(status) {
+  return { Hadir: "H", Sakit: "S", Izin: "I", Alpa: "A" }[status] ?? "?";
+}
+
+/* ============================================================
+   7. SUBJECT MANAGEMENT
+   ============================================================ */
+function populateSubjectSelects() {
+  const options = state.subjects.map(s =>
+    `<option value="${escapeHtml(s.id)}">${escapeHtml(s.nama_mapel)}</option>`
+  ).join("");
+
+  const currentAttendance = $("attendance-mapel").value;
+  const currentReport = $("report-mapel").value;
+
+  $("attendance-mapel").innerHTML =
+    `<option value="">Pilih mata pelajaran</option>${options}`;
+
+  $("report-mapel").innerHTML =
+    `<option value="">Semua Mata Pelajaran</option>${options}`;
+
+  if (state.subjects.some(s => s.id === currentAttendance)) $("attendance-mapel").value = currentAttendance;
+  if (state.subjects.some(s => s.id === currentReport)) $("report-mapel").value = currentReport;
+}
+
+function renderSubjects() {
+  if (!state.subjects.length) {
+    $("mapel-list").innerHTML =
+      `<div class="sm:col-span-2 lg:col-span-3 border border-dashed border-slate-300 rounded-2xl p-6 text-center text-sm text-slate-400">Belum ada mata pelajaran.</div>`;
+    return;
+  }
+
+  $("mapel-list").innerHTML = state.subjects.map(subject => `
+    <div class="flex items-center justify-between gap-3 border border-slate-200 rounded-2xl p-4 bg-slate-50/60">
+      <div class="min-w-0">
+        <p class="text-sm font-semibold text-slate-800 truncate">${escapeHtml(subject.nama_mapel)}</p>
+        <p class="text-xs text-slate-400 mt-1">ID: ${escapeHtml(subject.id.slice(0, 8))}...</p>
+      </div>
+      <button data-delete-subject="${escapeHtml(subject.id)}"
+              class="no-print shrink-0 px-3 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold">
+        Hapus
+      </button>
+    </div>
+  `).join("");
+
+  document.querySelectorAll("[data-delete-subject]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const subject = getSubjectById(btn.dataset.deleteSubject);
+      if (!subject) return;
+
+      const ok = confirm(
+        `Hapus mata pelajaran "${subject.nama_mapel}"?\n\nData absensi yang terkait mapel ini juga akan terhapus karena foreign key memakai ON DELETE CASCADE.`
+      );
+      if (!ok) return;
+
+      try {
+        const { error } = await db.from("mata_pelajaran").delete().eq("id", subject.id);
+        if (error) throw error;
+
+        await loadSubjects();
+        populateSubjectSelects();
+        renderSubjects();
+        toast("Mata pelajaran dihapus.", "success");
+      } catch (error) {
+        console.error(error);
+        toast("Gagal menghapus mata pelajaran.", "error");
+      }
+    });
+  });
+}
+
+$("mapel-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const name = $("mapel-name").value.trim();
+  if (!name) return;
+
+  try {
+    const { error } = await db
+      .from("mata_pelajaran")
+      .insert({ nama_mapel: name });
+
+    if (error) throw error;
+
+    $("mapel-name").value = "";
+    await loadSubjects();
+    populateSubjectSelects();
+    renderSubjects();
+    toast("Mata pelajaran berhasil ditambahkan.", "success");
+  } catch (error) {
+    console.error(error);
+    toast("Gagal menambahkan mata pelajaran.", "error");
+  }
+});
+
+/* ============================================================
+   8. STUDENT MANAGEMENT
+   ============================================================ */
+function renderStudents() {
+  if (!state.students.length) {
+    $("students-body").innerHTML = `
+      <tr>
+        <td colspan="4" class="px-5 py-12 text-center text-sm text-slate-400">
+          Belum ada data siswa. Klik “Tambah Siswa”.
+        </td>
+      </tr>`;
+    return;
+  }
+
+  $("students-body").innerHTML = state.students.map((student, index) => `
+    <tr class="border-b border-slate-100 hover:bg-slate-50/60">
+      <td class="px-5 py-3 text-sm text-slate-500">${index + 1}</td>
+      <td class="px-5 py-3 text-sm font-semibold text-slate-800">${escapeHtml(student.nama)}</td>
+      <td class="px-5 py-3 text-sm text-slate-600">${student.jenis_kelamin === "L" ? "Laki-laki (L)" : "Perempuan (P)"}</td>
+      <td class="px-5 py-3">
+        <div class="flex justify-end gap-2">
+          <button data-edit-student="${escapeHtml(student.id)}"
+                  class="no-print px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700">
+            Edit
+          </button>
+          <button data-delete-student="${escapeHtml(student.id)}"
+                  class="no-print px-3 py-2 rounded-xl border border-red-200 hover:bg-red-50 text-xs font-bold text-red-600">
+            Hapus
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
+
+  document.querySelectorAll("[data-edit-student]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const student = getStudentById(btn.dataset.editStudent);
+      if (student) openStudentModal(student);
+    });
+  });
+
+  document.querySelectorAll("[data-delete-student]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const student = getStudentById(btn.dataset.deleteStudent);
+      if (!student) return;
+
+      const ok = confirm(
+        `Hapus siswa "${student.nama}"?\n\nData absensi milik siswa ini juga akan terhapus karena ON DELETE CASCADE.`
+      );
+      if (!ok) return;
+
+      try {
+        const { error } = await db.from("siswa").delete().eq("id", student.id);
+        if (error) throw error;
+
+        await loadStudents();
+        renderStudents();
+        renderAttendanceRows();
+        await loadDashboard();
+        toast("Siswa berhasil dihapus.", "success");
+      } catch (error) {
+        console.error(error);
+        toast("Gagal menghapus siswa.", "error");
+      }
+    });
+  });
+}
+
+function openStudentModal(student = null) {
+  $("student-modal-title").textContent = student ? "Edit Siswa" : "Tambah Siswa";
+  $("student-id").value = student?.id ?? "";
+  $("student-name").value = student?.nama ?? "";
+  $("student-gender").value = student?.jenis_kelamin ?? "";
+  $("student-modal").classList.remove("hidden");
+  $("student-name").focus();
+}
+
+function closeStudentModal() {
+  $("student-modal").classList.add("hidden");
+  $("student-form").reset();
+  $("student-id").value = "";
+}
+
+$("add-siswa-btn").addEventListener("click", () => openStudentModal());
+$("close-student-modal").addEventListener("click", closeStudentModal);
+$("cancel-student-modal").addEventListener("click", closeStudentModal);
+
+$("student-modal").addEventListener("click", (event) => {
+  if (event.target === $("student-modal")) closeStudentModal();
+});
+
+$("student-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const id = $("student-id").value.trim();
+  const nama = $("student-name").value.trim();
+  const jenis_kelamin = $("student-gender").value;
+
+  try {
+    let error;
+
+    if (id) {
+      ({ error } = await db
+        .from("siswa")
+        .update({ nama, jenis_kelamin })
+        .eq("id", id));
+    } else {
+      ({ error } = await db
+        .from("siswa")
+        .insert({ nama, jenis_kelamin }));
+    }
+
+    if (error) throw error;
+
+    await loadStudents();
+    renderStudents();
+    renderAttendanceRows();
+    await loadDashboard();
+    closeStudentModal();
+
+    toast(id ? "Data siswa diperbarui." : "Siswa berhasil ditambahkan.", "success");
+  } catch (error) {
+    console.error(error);
+    toast("Gagal menyimpan data siswa.", "error");
+  }
+});
+
+/* ============================================================
+   9. DAILY ATTENDANCE
+   ============================================================ */
+function defaultAttendanceRows() {
+  state.attendanceRows = state.students.map(student => ({
+    siswa_id: student.id,
+    status: "Hadir",
+    keterangan: ""
+  }));
+}
+
+async function loadExistingAttendance() {
+  const date = $("attendance-date").value;
+  const mapelId = $("attendance-mapel").value;
+
+  defaultAttendanceRows();
+
+  if (!date || !mapelId || !db) {
+    renderAttendanceRows();
+    return;
+  }
+
+  $("attendance-loading").classList.remove("hidden");
+
+  try {
+    const { data, error } = await db
+      .from("absensi")
+      .select("siswa_id,status,keterangan")
+      .eq("tanggal", date)
+      .eq("mapel_id", mapelId);
+
+    if (error) throw error;
+
+    const existing = new Map((data ?? []).map(row => [row.siswa_id, row]));
+
+    state.attendanceRows = state.students.map(student => {
+      const saved = existing.get(student.id);
+      return {
+        siswa_id: student.id,
+        status: saved?.status ?? "Hadir",
+        keterangan: saved?.keterangan ?? ""
+      };
+    });
+  } catch (error) {
+    console.error(error);
+    toast("Gagal memuat absensi yang sudah tersimpan.", "error");
+  } finally {
+    $("attendance-loading").classList.add("hidden");
+    renderAttendanceRows();
+  }
+}
+
+function renderAttendanceRows() {
+  if (!state.students.length) {
+    $("attendance-body").innerHTML = `
+      <tr>
+        <td colspan="4" class="px-5 py-12 text-center text-sm text-slate-400">
+          Belum ada data siswa.
+        </td>
+      </tr>`;
+    $("attendance-summary").textContent = "0 siswa";
+    return;
+  }
+
+  if (state.attendanceRows.length !== state.students.length) {
+    defaultAttendanceRows();
+  }
+
+  $("attendance-body").innerHTML = state.students.map((student, index) => {
+    const draft = state.attendanceRows.find(x => x.siswa_id === student.id) ?? {
+      siswa_id: student.id,
+      status: "Hadir",
+      keterangan: ""
+    };
+
+    return `
+      <tr class="border-b border-slate-100">
+        <td class="px-5 py-4 text-sm text-slate-500 align-top">${index + 1}</td>
+        <td class="px-5 py-4 align-top">
+          <p class="text-sm font-semibold text-slate-800">${escapeHtml(student.nama)}</p>
+          <p class="text-xs text-slate-400 mt-1">${student.jenis_kelamin === "L" ? "L" : "P"}</p>
+        </td>
+        <td class="px-5 py-4 align-top">
+          <div class="flex flex-wrap gap-2">
+            ${["Hadir","Sakit","Izin","Alpa"].map(status => `
+              <button type="button"
+                      data-att-status="${status}"
+                      data-student-id="${escapeHtml(student.id)}"
+                      class="status-btn px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold ${draft.status === status ? "active" : ""}">
+                ${status}
+              </button>
+            `).join("")}
+          </div>
+        </td>
+        <td class="px-5 py-4 align-top">
+          <input
+            data-att-note="${escapeHtml(student.id)}"
+            value="${escapeHtml(draft.keterangan)}"
+            maxlength="250"
+            placeholder="Keterangan (opsional)"
+            class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  document.querySelectorAll("[data-att-status]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const studentId = btn.dataset.studentId;
+      const status = btn.dataset.attStatus;
+
+      const row = state.attendanceRows.find(x => x.siswa_id === studentId);
+      if (row) row.status = status;
+
+      document.querySelectorAll(`[data-att-status][data-student-id="${studentId}"]`)
+        .forEach(item => item.classList.toggle("active", item.dataset.attStatus === status));
+
+      updateAttendanceSummary();
+    });
+  });
+
+  document.querySelectorAll("[data-att-note]").forEach(input => {
+    input.addEventListener("input", () => {
+      const row = state.attendanceRows.find(x => x.siswa_id === input.dataset.attNote);
+      if (row) row.keterangan = input.value;
+    });
+  });
+
+  updateAttendanceSummary();
+}
+
+function updateAttendanceSummary() {
+  const count = state.attendanceRows.reduce((acc, row) => {
+    acc[row.status] = (acc[row.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  $("attendance-summary").textContent =
+    `${state.attendanceRows.length} siswa • Hadir ${count.Hadir || 0} • Sakit ${count.Sakit || 0} • Izin ${count.Izin || 0} • Alpa ${count.Alpa || 0}`;
+}
+
+$("attendance-date").addEventListener("change", loadExistingAttendance);
+$("attendance-mapel").addEventListener("change", loadExistingAttendance);
+
+$("save-attendance-btn").addEventListener("click", async () => {
+  const date = $("attendance-date").value;
+  const mapelId = $("attendance-mapel").value;
+
+  if (!date) {
+    toast("Pilih tanggal terlebih dahulu.", "error");
+    return;
+  }
+  if (!mapelId) {
+    toast("Pilih mata pelajaran terlebih dahulu.", "error");
+    return;
+  }
+  if (!state.students.length) {
+    toast("Belum ada data siswa.", "error");
+    return;
+  }
+
+  const payload = state.attendanceRows.map(row => ({
+    siswa_id: row.siswa_id,
+    tanggal: date,
+    mapel_id: mapelId,
+    status: row.status,
+    keterangan: row.keterangan?.trim() || null
+  }));
+
+  const btn = $("save-attendance-btn");
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Menyimpan...";
+
+  try {
+    const { error } = await db
+      .from("absensi")
+      .upsert(payload, {
+        onConflict: "siswa_id,tanggal,mapel_id"
+      });
+
+    if (error) throw error;
+
+    toast("Absensi berhasil disimpan ke Supabase.", "success");
+    await loadDashboard();
+    await loadExistingAttendance();
+  } catch (error) {
+    console.error(error);
+    toast("Gagal menyimpan absensi. Pastikan UNIQUE constraint dan RLS policy sudah dibuat.", "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+});
+
+/* ============================================================
+   10. REPORT / REKAP
+   ============================================================ */
+function setReportMode() {
+  const mode = $("report-mode").value;
+  $("report-month-wrap").classList.toggle("hidden", mode !== "month");
+  $("report-date-wrap").classList.toggle("hidden", mode !== "date");
+}
+
+$("report-mode").addEventListener("change", setReportMode);
+
+function reportRange() {
+  const mode = $("report-mode").value;
+  if (mode === "date") {
+    const date = $("report-date").value;
+    return date ? { start: date, end: date } : null;
+  }
+
+  const month = $("report-month").value;
+  if (!month) return null;
+  return monthBounds(month);
+}
+
+async function fetchReportRows() {
+  const range = reportRange();
+  if (!range) {
+    toast("Pilih periode rekap terlebih dahulu.", "error");
+    return [];
+  }
+
+  let query = db
+    .from("absensi")
+    .select("siswa_id,tanggal,mapel_id,status,keterangan,created_at")
+    .gte("tanggal", range.start)
+    .lte("tanggal", range.end)
+    .order("tanggal", { ascending: true });
+
+  const mapelId = $("report-mapel").value;
+  if (mapelId) query = query.eq("mapel_id", mapelId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
+function buildReportAggregation(absensiRows) {
+  const byStudent = new Map();
+
+  state.students.forEach(student => {
+    byStudent.set(student.id, {
+      siswa_id: student.id,
+      nama: student.nama,
+      Hadir: 0,
+      Sakit: 0,
+      Izin: 0,
+      Alpa: 0
+    });
+  });
+
+  absensiRows.forEach(row => {
+    if (!byStudent.has(row.siswa_id)) return;
+    if (!["Hadir","Sakit","Izin","Alpa"].includes(row.status)) return;
+    byStudent.get(row.siswa_id)[row.status] += 1;
+  });
+
+  return [...byStudent.values()].map(item => {
+    const total = item.Hadir + item.Sakit + item.Izin + item.Alpa;
+    return {
+      ...item,
+      total,
+      percentage: total ? (item.Hadir / total) * 100 : 0
+    };
+  });
+}
+
+async function loadReport() {
+  if (!db || !state.students.length) {
+    renderReport([]);
+    return;
+  }
+
+  $("report-loading").classList.remove("hidden");
+
+  try {
+    const rows = await fetchReportRows();
+    state.reportRows = buildReportAggregation(rows);
+
+    renderReport(state.reportRows);
+
+    const range = reportRange();
+    const subject = $("report-mapel").value
+      ? getSubjectById($("report-mapel").value)?.nama_mapel
+      : "Semua Mata Pelajaran";
+
+    const periodText = $("report-mode").value === "date"
+      ? `Tanggal ${formatDateID(range.start)}`
+      : `Periode ${formatDateID(range.start)} s.d. ${formatDateID(range.end)}`;
+
+    $("report-caption").textContent = `${periodText} • ${subject}`;
+    $("print-period").textContent = `${periodText} • ${subject}`;
+  } catch (error) {
+    console.error(error);
+    toast("Gagal mengambil data rekap.", "error");
+    renderReport([]);
+  } finally {
+    $("report-loading").classList.add("hidden");
+  }
+}
+
+function renderReport(rows) {
+  if (!rows.length) {
+    $("report-body").innerHTML = `
+      <tr>
+        <td colspan="8" class="px-5 py-12 text-center text-sm text-slate-400">
+          Tidak ada data untuk periode/filter yang dipilih.
+        </td>
+      </tr>`;
+    return;
+  }
+
+  $("report-body").innerHTML = rows.map((row, index) => `
+    <tr class="border-b border-slate-100">
+      <td class="px-4 py-3 text-sm text-slate-500">${index + 1}</td>
+      <td class="px-4 py-3 text-sm font-semibold text-slate-800">${escapeHtml(row.nama)}</td>
+      <td class="px-4 py-3 text-sm text-center font-bold text-green-700">${row.Hadir}</td>
+      <td class="px-4 py-3 text-sm text-center font-bold text-amber-700">${row.Sakit}</td>
+      <td class="px-4 py-3 text-sm text-center font-bold text-blue-700">${row.Izin}</td>
+      <td class="px-4 py-3 text-sm text-center font-bold text-red-700">${row.Alpa}</td>
+      <td class="px-4 py-3 text-sm text-center font-semibold text-slate-700">${row.total}</td>
+      <td class="px-4 py-3 text-sm text-center font-semibold text-slate-700">${row.percentage.toFixed(1)}%</td>
+    </tr>
+  `).join("");
+}
+
+$("load-report-btn").addEventListener("click", loadReport);
+
+$("export-csv-btn").addEventListener("click", () => {
+  if (!state.reportRows.length) {
+    toast("Tampilkan rekap terlebih dahulu sebelum export.", "error");
+    return;
+  }
+
+  const header = [
+    "No","Nama Siswa","Hadir","Sakit","Izin","Alpa","Total","Persentase Kehadiran"
+  ];
+
+  const body = state.reportRows.map((row, index) => [
+    index + 1,
+    row.nama,
+    row.Hadir,
+    row.Sakit,
+    row.Izin,
+    row.Alpa,
+    row.total,
+    row.percentage.toFixed(1) + "%"
+  ]);
+
+  const csv = [header, ...body]
+    .map(row => row.map(value => `"${String(value).replaceAll('"','""')}"`).join(","))
+    .join("\r\n");
+
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `rekap-absensi-11-tkj-1-${todayISO()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+
+  toast("CSV berhasil dibuat.", "success");
+});
+
+$("print-btn").addEventListener("click", () => {
+  window.print();
+});
+
+/* ============================================================
+   11. REFRESH
+   ============================================================ */
+$("refresh-all-btn").addEventListener("click", async () => {
+  const btn = $("refresh-all-btn");
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "↻ Memuat...";
+
+  try {
+    await loadBaseData();
+    await loadDashboard();
+    if (state.activeView === "input-absensi") await loadExistingAttendance();
+    if (state.activeView === "rekap") await loadReport();
+    toast("Data berhasil direfresh.", "success");
+  } catch (error) {
+    console.error(error);
+    toast("Refresh gagal.", "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+});
+
+/* ============================================================
+   12. INITIALIZATION
+   ============================================================ */
+async function init() {
+  $("today-label").textContent = new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).format(new Date());
+
+  $("attendance-date").value = todayISO();
+  $("report-month").value = currentMonthISO();
+  $("report-date").value = todayISO();
+  setReportMode();
+
+  const connected = await initSupabase();
+  if (!connected) return;
+
+  await loadBaseData();
+  await loadDashboard();
+  await loadExistingAttendance();
+}
+
+init();
+</script>
+</body>
+</html>
